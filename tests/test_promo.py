@@ -173,3 +173,47 @@ def test_state_roundtrip():
     db.set_state("k", "a")
     db.set_state("k", "b")
     assert db.get_state("k") == "b"
+
+
+def test_secretbox_and_ml_token_storage():
+    from promo.pipeline import ML_TOKEN_KEY, load_ml_token, save_ml_token
+    from promo.secretbox import decrypt, encrypt
+    t = encrypt("segredo", "TG-abc-123")
+    assert "TG-abc" not in t and decrypt("segredo", t) == "TG-abc-123"
+    import pytest
+    with pytest.raises(ValueError):
+        decrypt("outra-chave", t)
+    db = mem_db()
+    cfg = {"client_secret": "segredo"}
+    save_ml_token(db, cfg, "TG-novo")
+    assert "TG-novo" not in db.get_state(ML_TOKEN_KEY)       # gravado cifrado
+    assert load_ml_token(db, cfg) == "TG-novo"
+    assert load_ml_token(db, {"client_secret": "errado"}) is None
+
+
+def test_safe_url_strips_tokens():
+    from promo.collectors.base import safe_url
+    assert safe_url("https://feed.exemplo/x.csv?token=SEGREDO") == "https://feed.exemplo/x.csv"
+
+
+def test_compact_keeps_one_price_per_day():
+    db = mem_db()
+    for d in (30, 20):
+        for h in range(3):
+            noon = (datetime.now(timezone.utc) - timedelta(days=d)).replace(hour=12, minute=0, second=0, microsecond=0)
+            ingest(db, [offer(price=100 + h)], collected_at=(noon + timedelta(hours=h)).isoformat())
+    ingest(db, [offer(price=90)], collected_at=days_ago(0))
+    removed = db.compact()
+    assert removed == 4
+    assert len(db.history(1)) == 3
+
+
+def test_build_site(tmp_path):
+    from promo.demo import load_demo
+    from promo.site import build_site
+    db = mem_db()
+    load_demo(db, days=5)
+    path = build_site(db, str(tmp_path))
+    html = open(path, encoding="utf-8").read()
+    assert "__DATA__" not in html and '"demo":true' in html and "Fone Bluetooth" in html
+    assert (tmp_path / ".nojekyll").exists()

@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Melhores promoções de 9 lojas, com desconto real verificado pelo histórico de preços.">
+<title>Promo Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: painel operacional — resumo no topo, filtros fixos, tabela de ranking como peça central */
+:root{
+  --bg:#f4f5f2; --panel:#ffffff; --ink:#1b1f1c; --muted:#646b66; --line:#dfe3de; --chip:#eceee9;
+  --accent:#0d6a4c; --accent-ink:#ffffff; --accent-soft:#dcefe6;
+  --warn:#9a4a0f; --bad:#a12a2a; --bad-soft:#f7e0df; --flash:#6a43c9; --flash-soft:#ebe4fa;
+  --banner:#fff4d6; --banner-ink:#6b4a00;
+  --f-display:"Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#121513; --panel:#1a1e1b; --ink:#e9ece8; --muted:#9aa29c; --line:#2c322e; --chip:#242925;
+  --accent:#4cc193; --accent-ink:#0b1f17; --accent-soft:#163428;
+  --warn:#e8a05f; --bad:#ee8080; --bad-soft:#3a1d1d; --flash:#b8a0f4; --flash-soft:#2a2340;
+  --banner:#2d2614; --banner-ink:#f1d27a; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#121513; --panel:#1a1e1b; --ink:#e9ece8; --muted:#9aa29c; --line:#2c322e; --chip:#242925;
+  --accent:#4cc193; --accent-ink:#0b1f17; --accent-soft:#163428;
+  --warn:#e8a05f; --bad:#ee8080; --bad-soft:#3a1d1d; --flash:#b8a0f4; --flash-soft:#2a2340;
+  --banner:#2d2614; --banner-ink:#f1d27a; color-scheme:dark; }
+*{box-sizing:border-box}
+body{margin:0;font-size:15px;background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body);
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.wrap{max-width:1360px;margin:0 auto;padding-block:16px 40px;display:flex;flex-direction:column;gap:14px}
+.banner{background:var(--banner);color:var(--banner-ink);border-radius:8px;padding:9px 12px;font-size:13px}
+header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+h1{font:700 24px/1.1 var(--f-display);margin:0;letter-spacing:-.02em}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi b{display:block;font:700 26px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.kpi small{color:var(--muted)}
+.stores{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.ml{font-weight:600}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.filters input,.filters select{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:inherit}
+#q{min-width:0;flex:1 1 200px}
+.filters label{font-size:13px;display:inline-flex;gap:5px;align-items:center;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer;text-decoration:none;display:inline-block;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;font:inherit;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-color:var(--accent);font-weight:600}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:14px}
+th{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:var(--chip)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.clickable{cursor:pointer} tr.clickable:hover td{background:var(--chip)}
+.prod{display:flex;gap:10px;align-items:flex-start;min-width:0}
+.thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;background:var(--chip);flex:none;border:1px solid var(--line)}
+.thumb.lg{width:88px;height:88px}
+@media (max-width:760px){ .thumb{width:44px;height:44px} }
+.rank{font-weight:700;color:var(--muted);width:32px}
+.title{font-weight:600}
+.meta{color:var(--muted);font-size:12px}
+.strike{text-decoration:line-through;color:var(--muted);font-size:12px}
+.badge{display:inline-block;font-size:11px;border-radius:5px;padding:1px 6px;margin:3px 3px 0 0;white-space:nowrap}
+.b-real{background:var(--accent-soft);color:var(--accent)}
+.b-fake{background:var(--bad-soft);color:var(--bad)}
+.b-flash{background:var(--flash-soft);color:var(--flash)}
+.b-plain{background:var(--chip);color:var(--ink)}
+.pos{color:var(--accent);font-weight:700}.neg{color:var(--bad)}
+.cheaper{color:var(--warn);font-size:12px;margin-top:2px}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.card h3{margin:0 0 4px;font-size:15px}
+.row{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px dashed var(--line);font-size:13px}
+.row.best{font-weight:700;color:var(--accent)}
+.row.best .meta{font-weight:400}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.dlg{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;width:min(760px,100%);max-height:90vh;overflow:auto}
+.dlg-head{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.dlg-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.dlg-body h4{margin:6px 0 0;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.dlg-body p{margin:0}
+svg text{fill:var(--muted);font-size:11px;font-family:var(--f-body)}
+a{color:var(--accent)}
+.note{font-size:12px;color:var(--muted);max-width:75ch}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom, 0px));background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:13px;z-index:30}
+.show-sm{display:none}
+.tabs{scrollbar-width:none}
+@media (max-width:760px){ .hide-sm{display:none} .show-sm{display:block} td,th{padding:8px 7px} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="banner" id="demo-banner" hidden><b>Dados de demonstração.</b> Produtos, imagens e preços fictícios, exibidos enquanto as lojas não são configuradas. Os botões "Comprar" levam a endereços de exemplo.</div>
+  <header><h1>Promo<span>Monitor</span></h1><div class="sub" id="updated"></div></header>
+  <section class="kpis" id="kpis"></section>
+  <div class="stores" id="stores" aria-label="Filtrar por loja"></div>
+  <div class="filters">
+    <input type="search" id="q" placeholder="Buscar produto…" aria-label="Buscar produto">
+    <select id="category" aria-label="Categoria"><option value="">Todas as categorias</option></select>
+    <label><input type="checkbox" id="only_real"> Só desconto real</label>
+    <label><input type="checkbox" id="free_shipping"> Frete grátis</label>
+    <label><input type="checkbox" id="lightning"> Relâmpago</label>
+    <label>Até R$ <input type="number" id="max_price" min="0" step="10" style="width:90px"></label>
+    <button class="btn primary" id="csv" type="button">Baixar relatório (CSV)</button>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="ranking">Melhores promoções</button>
+    <button class="tab" role="tab" data-tab="compare">Comparar lojas</button>
+    <button class="tab" role="tab" data-tab="report">Relatório por loja</button>
+  </nav>
+  <section id="view"></section>
+  <p class="note">Desconto real: queda frente à mediana dos últimos 90 dias, sem contar os 3 dias mais recentes. Desconto maquiado: a loja anuncia 15% ou mais, mas o preço não caiu de fato. Preço final: preço menos cupom, mais frete quando não é grátis. Clique numa oferta para ver o histórico.</p>
+</div>
+<div id="detail" hidden></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+const DATA = __DATA__;
+const $ = s => document.querySelector(s);
+const brl = v => v == null ? '—' : v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const pct = v => v == null ? '—' : (v*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const STORES = DATA.stores, NAME = Object.fromEntries(STORES.map(s=>[s.id,s.name]));
+const selected = new Set(); let tab = 'ranking';
+try { JSON.parse(localStorage.getItem('pm_stores')||'[]').forEach(x=>selected.add(x)); tab = localStorage.getItem('pm_tab') || tab; } catch(e) {}
+if (['ranking','compare','report'].includes(location.hash.slice(1))) tab = location.hash.slice(1);
+
+/* ---- mesma lógica de promo/analysis.py, no navegador ---- */
+function filtered() {
+  const q = $('#q').value.toLowerCase(), cat = $('#category').value, mp = parseFloat($('#max_price').value);
+  return DATA.items.filter(i => (!selected.size || selected.has(i.store_id)) && (!cat || i.category === cat)
+    && (!q || i.title.toLowerCase().includes(q)) && (!$('#only_real').checked || i.flags.includes('desconto_real'))
+    && (!$('#free_shipping').checked || i.free_shipping) && (!$('#lightning').checked || i.is_lightning)
+    && (isNaN(mp) || i.effective_price <= mp));
+}
+function compareGroups(items) {
+  const g = {};
+  for (const it of items) (g[it.group_id] ||= {group_id: it.group_id, name: it.group_name, offers: []}).offers.push(it);
+  for (const x of Object.values(g)) {
+    x.offers.sort((a,b) => a.effective_price - b.effective_price);
+    x.stores = [...new Set(x.offers.map(o=>o.store_id))];
+    const p = x.offers.map(o=>o.effective_price);
+    x.best_store = x.offers[0].store_id; x.best_price = p[0]; x.spread = +(Math.max(...p) - p[0]).toFixed(2);
+  }
+  return g;
+}
+const GROUPS = compareGroups(DATA.items);
+function ranking(items, limit=60) {
+  const best = {};
+  for (const it of items) { const k = it.group_id+'|'+it.store_id; if (!best[k] || it.score > best[k].score) best[k] = it; }
+  return Object.values(best).sort((a,b) => b.score - a.score || a.effective_price - b.effective_price).slice(0, limit)
+    .map((it, i) => { const g = GROUPS[it.group_id];
+      return {...it, rank: i+1, stores_compared: g.stores.length,
+        cheaper_elsewhere: g.best_price < it.effective_price - 0.01 ? {store_name: NAME[g.best_store], effective_price: g.best_price} : null}; });
+}
+function summary(items) {
+  const by = {};
+  for (const it of items) { const s = by[it.store_id] ||= {store_id: it.store_id, store_name: it.store_name, offers:0, real:0, fake:0, lightning:0, free:0, sum:0};
+    s.offers++; if (it.flags.includes('desconto_real')) { s.real++; s.sum += it.real_discount; }
+    if (it.flags.includes('desconto_maquiado')) s.fake++; if (it.is_lightning) s.lightning++; if (it.free_shipping) s.free++; }
+  const st = Object.values(by).sort((a,b)=>a.store_name.localeCompare(b.store_name));
+  st.forEach(s => s.avg = s.real ? s.sum/s.real : null);
+  const t = k => st.reduce((a,s)=>a+s[k],0);
+  return {total: items.length, real: t('real'), fake: t('fake'), lightning: t('lightning'), stores: st};
+}
+
+const FLAG = { desconto_real:['b-real','Desconto real'], menor_preco_historico:['b-real','Menor preço 90d'],
+  desconto_maquiado:['b-fake','Desconto maquiado'], aumentou_antes:['b-fake','Subiu antes'],
+  relampago:['b-flash','Relâmpago'], frete_gratis:['b-plain','Frete grátis'], cupom:['b-plain','Cupom'] };
+const thumb = (src, cls='') => src ? `<img class="thumb ${cls}" src="${esc(src)}" alt="" loading="lazy">` : `<span class="thumb ${cls}"></span>`;
+const badges = f => f.map(x => FLAG[x] ? `<span class="badge ${FLAG[x][0]}">${FLAG[x][1]}</span>` : '').join('');
+
+function init() {
+  const cats = [...new Set(DATA.items.map(i=>i.category))].sort();
+  $('#category').innerHTML += cats.map(c=>`<option>${esc(c)}</option>`).join('');
+    $('#demo-banner').hidden = !DATA.demo;
+  $('#updated').textContent = DATA.items.length
+    ? `${STORES.length} lojas monitoradas · atualizado em ${new Date(DATA.generated_at).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'})}`
+    : 'Aguardando a primeira coleta';
+  renderStores();
+  document.querySelectorAll('.tab').forEach(b => b.onclick = () => { tab = b.dataset.tab; try{localStorage.setItem('pm_tab',tab)}catch(e){}; history.replaceState(null,'','#'+tab); refresh(); });
+  ['q','category','only_real','free_shipping','lightning','max_price'].forEach(id => $('#'+id).addEventListener('input', refresh));
+  $('#csv').onclick = downloadCsv;
+  addEventListener('hashchange', () => { const h = location.hash.slice(1); if (['ranking','compare','report'].includes(h)) { tab = h; refresh(); } });
+  refresh();
+}
+function renderStores() {
+  $('#stores').innerHTML = `<button class="chip" aria-pressed="${selected.size===0}" data-id="">Todas</button>` +
+    STORES.map(s => `<button class="chip ${s.id==='mercadolivre'?'ml':''}" aria-pressed="${selected.has(s.id)}" data-id="${s.id}" title="${esc(s.source_note)}">${esc(s.name)}</button>`).join('');
+  $('#stores').querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    const id = c.dataset.id;
+    if (!id) selected.clear(); else selected.has(id) ? selected.delete(id) : selected.add(id);
+    try{localStorage.setItem('pm_stores', JSON.stringify([...selected]))}catch(e){}
+    renderStores(); refresh();
+  });
+}
+function refresh() {
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+  const items = filtered(), sum = summary(items);
+  $('#kpis').innerHTML = [[sum.total,'ofertas analisadas'],[sum.real,'com desconto real'],[sum.lightning,'ofertas relâmpago'],[sum.fake,'descontos maquiados detectados']]
+    .map(([v,l])=>`<div class="kpi"><b>${v}</b><small>${l}</small></div>`).join('');
+  if (tab === 'ranking') return renderRanking(items);
+  if (tab === 'compare') return renderCompare();
+  renderReport(sum);
+}
+function renderRanking(items) {
+  const rows = ranking(items);
+  if (!rows.length) return $('#view').innerHTML = DATA.items.length
+    ? '<div class="empty">Nenhuma oferta com esses filtros. Desmarque algum filtro ou escolha outra loja.</div>'
+    : '<div class="empty"><b>Ainda não há ofertas.</b><br>A primeira coleta aparece aqui assim que terminar.</div>';
+  $('#view').innerHTML = `<div class="tablewrap"><table><thead><tr><th>#</th><th>Produto</th><th class="hide-sm">Loja</th><th class="num">Preço final</th><th class="num hide-sm">Referência 90d</th><th class="num">Desc. real</th><th class="hide-sm">Vendedor</th><th></th></tr></thead><tbody>` +
+    rows.map(r => `<tr class="clickable" data-id="${r.listing_id}" tabindex="0">
+      <td class="rank">${r.rank}</td>
+      <td><div class="prod">${thumb(r.image)}<div><div class="title">${esc(r.title)}</div><div class="meta show-sm">${esc(r.store_name)}</div>${badges(r.flags)}
+        ${r.cheaper_elsewhere ? `<div class="cheaper">Mais barato em ${esc(r.cheaper_elsewhere.store_name)}: ${brl(r.cheaper_elsewhere.effective_price)}</div>`:''}</div></div></td>
+      <td class="hide-sm">${esc(r.store_name)}<div class="meta">${r.stores_compared} lojas comparadas</div></td>
+      <td class="num"><b>${brl(r.effective_price)}</b>${r.list_price && r.list_price > r.price ? `<div class="strike">${brl(r.list_price)}</div>`:''}
+        ${r.coupon_code ? `<div class="meta">cupom ${esc(r.coupon_code)} −${brl(r.coupon_value)}</div>`:''}
+        ${!r.free_shipping && r.shipping_cost ? `<div class="meta">${brl(r.price)} + frete ${brl(r.shipping_cost)}</div>`:''}</td>
+      <td class="num hide-sm">${brl(r.reference_price)}</td>
+      <td class="num ${r.real_discount >= 0.1 ? 'pos' : r.real_discount < 0 ? 'neg':''}">${pct(r.real_discount)}<div class="meta">anunc. ${pct(r.announced_discount)}</div></td>
+      <td class="hide-sm">${esc(r.seller_name || '—')}<div class="meta">${esc(r.seller_reputation || '')}</div></td>
+      <td><a class="btn" href="${esc(r.url)}" target="_blank" rel="noopener">Comprar</a></td></tr>`).join('') + '</tbody></table></div>';
+  $('#view').querySelectorAll('tr.clickable').forEach(tr => {
+    tr.onclick = e => { if (!e.target.closest('a')) openDetail(+tr.dataset.id); };
+    tr.onkeydown = e => { if (e.key === 'Enter') openDetail(+tr.dataset.id); };
+  });
+}
+function renderCompare() {
+  const q = $('#q').value.toLowerCase();
+  const list = Object.values(GROUPS).filter(g => g.stores.length > 1 && (!q || g.name.toLowerCase().includes(q))
+    && (!selected.size || g.stores.some(s => selected.has(s)))).sort((a,b)=>b.spread-a.spread);
+  if (!list.length) return $('#view').innerHTML = '<div class="empty">Nenhum produto encontrado em mais de uma loja.</div>';
+  $('#view').innerHTML = `<div class="cards">` + list.map(g => `<div class="card"><div class="prod">${thumb(g.offers[0].image)}<div><h3>${esc(g.name)}</h3>
+    <div class="meta">${g.stores.length} lojas · ${brl(g.spread)} entre o mais barato e o mais caro</div></div></div>` +
+    g.offers.map((o,i) => `<div class="row ${i===0?'best':''}"><span>${esc(o.store_name)}${o.seller_name ? ` <span class="meta">· ${esc(o.seller_name)}</span>`:''}${o.free_shipping?' <span class="badge b-plain">frete grátis</span>':''}</span>
+      <span><a href="${esc(o.url)}" target="_blank" rel="noopener">${brl(o.effective_price)}</a></span></div>`).join('') + '</div>').join('') + '</div>';
+}
+function renderReport(sum) {
+  $('#view').innerHTML = `<div class="tablewrap"><table><thead><tr><th>Loja</th><th class="num">Ofertas</th><th class="num">Desconto real</th><th class="num">Média desc. real</th><th class="num">Relâmpago</th><th class="num">Frete grátis</th><th class="num">Maquiados</th><th class="hide-sm">Fonte de dados</th></tr></thead><tbody>` +
+    sum.stores.map(s => { const st = STORES.find(x=>x.id===s.store_id);
+      return `<tr><td><b>${esc(s.store_name)}</b></td><td class="num">${s.offers}</td><td class="num">${s.real}</td><td class="num">${pct(s.avg)}</td>
+      <td class="num">${s.lightning}</td><td class="num">${s.free}</td><td class="num">${s.fake}</td>
+      <td class="hide-sm meta">${st.source === 'official_api' ? 'API oficial' : 'Feed de afiliados'} · a cada ${st.interval_minutes} min</td></tr>`; }).join('') + '</tbody></table></div>';
+}
+function openDetail(id) {
+  const me = DATA.items.find(o => o.listing_id === id), [start, prices, days] = DATA.hist[id] || [null, [], []], g = GROUPS[me.group_id];
+  const box = $('#detail');
+  box.innerHTML = `<div class="overlay" id="ov"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="d-title">
+    <div class="dlg-head"><div class="prod">${thumb(me.image,'lg')}<div><div class="title" id="d-title">${esc(me.title)}</div><div class="meta">${esc(me.store_name)} · ${prices.length} dias de histórico</div></div></div><button class="btn" id="close" type="button">Fechar</button></div>
+    <div class="dlg-body">${chart(start, prices, days)}
+      <p>${badges(me.flags)}</p>
+      <p>Preço atual <b>${brl(me.price)}</b> · final <b>${brl(me.effective_price)}</b> · referência ${brl(me.reference_price)} · mínimo 90d ${brl(me.min_price_90d)}</p>
+      <p><a class="btn primary" href="${esc(me.url)}" target="_blank" rel="noopener">Abrir na loja</a></p>
+      <h4>Mesmo produto em outras lojas e vendedores</h4>
+      <div>${g.offers.map((o,i)=>`<div class="row ${i===0?'best':''}"><span>${esc(o.store_name)} <span class="meta">${esc(o.seller_name||'')} ${esc(o.seller_reputation||'')}</span></span><span><a href="${esc(o.url)}" target="_blank" rel="noopener">${brl(o.effective_price)}</a></span></div>`).join('')}</div>
+    </div></div></div>`;
+  box.hidden = false;
+  const close = () => { box.hidden = true; box.innerHTML = ''; };
+  $('#close').onclick = close; $('#close').focus();
+  $('#ov').onclick = e => { if (e.target.id === 'ov') close(); };
+  box.onkeydown = e => { if (e.key === 'Escape') close(); };
+}
+function chart(start, ps, days) {
+  if (!ps || ps.length < 2) return '<div class="empty">Histórico ainda curto: o gráfico aparece a partir do segundo dia de coleta.</div>';
+  const W=700,H=190,L=46,R=10,T=10,B=24, lo=Math.min(...ps), hi=Math.max(...ps), pad=(hi-lo)*0.1||1, y0=lo-pad, y1=hi+pad;
+  const x = i => L + i*(W-L-R)/(ps.length-1), y = v => T + (y1-v)/(y1-y0)*(H-T-B);
+  const line = ps.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p).toFixed(1)}`).join('');
+  const area = `${line}L${x(ps.length-1)},${H-B}L${L},${H-B}Z`;
+  const d0 = new Date(start+'T12:00:00'), d1 = new Date(((days && days.at(-1)) || start)+'T12:00:00');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Histórico de preço de ${brl(lo)} a ${brl(hi)}">
+    ${[hi,lo].map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${Math.round(v)}</text>`).join('')}
+    <path d="${area}" fill="var(--accent-soft)"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    <circle cx="${x(ps.length-1)}" cy="${y(ps.at(-1))}" r="4" fill="var(--accent)"/>
+    <text x="${L}" y="${H-6}">${d0.toLocaleDateString('pt-BR')}</text><text x="${W-R}" y="${H-6}" text-anchor="end">${d1.toLocaleDateString('pt-BR')}</text></svg>`;
+}
+function downloadCsv() {
+  const rows = ranking(filtered(), 500);
+  const head = ['Posição','Loja','Produto','Preço final','Referência 90d','Desconto real','Sinais','Mais barato em','Link'];
+  const f = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
+  const csv = [head.map(f).join(';')].concat(rows.map(r => [r.rank, r.store_name, r.title, r.effective_price.toFixed(2).replace('.',','),
+    r.reference_price?.toFixed(2).replace('.',','), pct(r.real_discount), r.flags.join(', '),
+    r.cheaper_elsewhere ? r.cheaper_elsewhere.store_name : '', r.url].map(f).join(';'))).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8'}));
+  a.download = `promocoes-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  const t = $('#toast'); t.textContent = `${rows.length} ofertas exportadas.`; t.hidden = false; setTimeout(()=>t.hidden=true, 2500);
+}
+init();
+</script>
+</body>
+</html>

@@ -47,6 +47,7 @@ def main(argv=None):
 
     d = sub.add_parser("demo", help="popular o banco com dados de demonstração")
     d.add_argument("--days", type=int, default=90)
+    d.add_argument("--if-empty", action="store_true", help="só carregar se o banco estiver vazio")
     c = sub.add_parser("collect", help="coletar agora")
     c.add_argument("--store", action="append", choices=list(STORES))
     sub.add_parser("run", help="coleta contínua (deixe 'serve' rodando em outro terminal)")
@@ -63,6 +64,9 @@ def main(argv=None):
     rep.add_argument("--limit", type=int, default=200)
     sub.add_parser("stores", help="listar lojas")
     sub.add_parser("clear-demo", help="apagar os dados de demonstração")
+    b = sub.add_parser("build-site", help="gerar o site estático (GitHub Pages)")
+    b.add_argument("--out", default="site")
+    sub.add_parser("compact", help="reduzir o histórico antigo a 1 preço por dia")
 
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -78,8 +82,16 @@ def main(argv=None):
 
     if a.cmd == "demo":
         from .demo import load_demo
-        n = load_demo(db, a.days)
-        print(f"{n} registros de demonstração gravados")
+        if a.if_empty and not db.is_empty():
+            print("O banco já tem dados; demonstração não carregada")
+        else:
+            n = load_demo(db, a.days)
+            print(f"{n} registros de demonstração gravados")
+    elif a.cmd == "build-site":
+        from .site import build_site
+        print(f"Site gerado em {build_site(db, a.out)}")
+    elif a.cmd == "compact":
+        print(f"{db.compact()} registros antigos compactados")
     elif a.cmd == "clear-demo":
         print(f"{db.clear_demo()} anúncios de demonstração removidos")
     elif a.cmd == "collect":

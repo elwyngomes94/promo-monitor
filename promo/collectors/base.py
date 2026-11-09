@@ -12,6 +12,11 @@ from ..models import Offer
 USER_AGENT = "PromoMonitor/0.1 (+monitoramento de precos via APIs autorizadas)"
 
 
+def safe_url(url: str) -> str:
+    """Remove a query string (pode conter tokens) antes de registrar a URL em logs/banco."""
+    return url.split("?", 1)[0]
+
+
 class RateLimiter:
     """Limita a N requisições por segundo (token bucket simples, thread-safe)."""
 
@@ -69,11 +74,11 @@ class Collector:
                         delay *= 2
                         continue
                 body = e.read().decode("utf-8", "replace")[:300]
-                raise CollectorError(f"HTTP {e.code} em {url}: {body}") from e
+                raise CollectorError(f"HTTP {e.code} em {safe_url(url)}: {body}") from e
             except urllib.error.URLError as e:
                 if attempt < self.max_retries:
                     time.sleep(delay)
                     delay *= 2
                     continue
-                raise CollectorError(f"Falha de rede em {url}: {e.reason}") from e
-        raise CollectorError(f"Esgotadas as tentativas em {url}")
+                raise CollectorError(f"Falha de rede em {safe_url(url)}: {e.reason}") from e
+        raise CollectorError(f"Esgotadas as tentativas em {safe_url(url)}")

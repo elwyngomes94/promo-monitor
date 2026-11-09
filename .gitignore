@@ -4,3 +4,4 @@ coupons.json
 __pycache__/
 *.csv
 *.db-*
+site/

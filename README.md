@@ -28,6 +28,9 @@ Comece com um banco novo (`--db promo.db` sem rodar `demo`) para não misturar d
 
 ## Colocar no ar
 
+**Em produção, só com GitHub (grátis):** coleta de hora em hora no Actions e site no
+GitHub Pages. Veja [GITHUB-PAGES.md](GITHUB-PAGES.md).
+
 **Grátis:** Vercel (dashboard) + Neon (Postgres) + GitHub Actions (coleta de hora em hora).
 Passo a passo em [VERCEL.md](VERCEL.md).
 

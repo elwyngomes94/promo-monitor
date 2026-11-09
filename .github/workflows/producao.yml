@@ -1,0 +1,109 @@
+name: Produção (coleta e site)
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # de hora em hora (UTC), no minuto 17
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: "O que fazer"
+        type: choice
+        default: coletar
+        options:
+          - coletar
+          - carregar-demo
+          - apagar-demo
+
+permissions:
+  contents: write    # salvar o banco no ramo "dados"
+  pages: write       # publicar o site
+  id-token: write
+
+concurrency:
+  group: producao
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      pages: ${{ steps.pages.outcome }}
+    env:
+      PROMO_DB: promo.db
+      PROMO_CONFIG_JSON: ${{ secrets.PROMO_CONFIG_JSON }}
+      ACAO: ${{ inputs.acao || 'coletar' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Baixar o banco de dados (ramo "dados")
+        run: |
+          if git fetch --depth 1 origin dados 2>/dev/null; then
+            git show FETCH_HEAD:promo.db > promo.db
+            echo "Banco restaurado ($(du -h promo.db | cut -f1))"
+          else
+            echo "Primeira execução: banco novo"
+          fi
+
+      - name: Coletar preços
+        run: |
+          case "$ACAO" in
+            carregar-demo) python -m promo demo ;;
+            apagar-demo)   python -m promo clear-demo ;;
+            *)
+              if [ -n "$PROMO_CONFIG_JSON" ]; then
+                python -m promo collect
+              else
+                echo "Nenhuma loja configurada ainda (secret PROMO_CONFIG_JSON)."
+              fi ;;
+          esac
+          # sem lojas configuradas, mostra a demonstração para o site não ficar vazio
+          if [ -z "$PROMO_CONFIG_JSON" ] && [ "$ACAO" != "apagar-demo" ]; then
+            python -m promo demo --if-empty
+          fi
+          python -m promo compact
+
+      - name: Gerar o site
+        run: python -m promo build-site --out site
+
+      - name: Salvar o banco no ramo "dados"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp promo.db /tmp/promo.db
+          git checkout -q --orphan dados-novo
+          git rm -rq --cached .
+          cp /tmp/promo.db promo.db
+          git add -f promo.db
+          git commit -qm "Banco atualizado em $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -qf origin HEAD:refs/heads/dados
+
+      # só publica quando o GitHub Pages estiver ativado (Settings > Pages > GitHub Actions)
+      - name: Preparar publicação
+        id: pages
+        continue-on-error: true
+        uses: actions/configure-pages@v5
+
+      - name: Enviar site
+        if: steps.pages.outcome == 'success'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  publicar:
+    needs: coletar
+    if: needs.coletar.outputs.pages == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Publicar no GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

@@ -276,6 +276,25 @@ class Database:
         self.commit()
         return n
 
+    def compact(self, keep_detail_days: int = 7, keep_days: int = 180) -> int:
+        """Mantém o banco pequeno: histórico completo dos últimos dias, depois só o último
+        preço de cada dia, e nada além de `keep_days`."""
+        from datetime import timedelta
+        now = datetime.now(timezone.utc)
+        old = (now - timedelta(days=keep_days)).isoformat()
+        detail = (now - timedelta(days=keep_detail_days)).isoformat()
+        before = self.one("SELECT COUNT(*) AS n FROM price_history")["n"]
+        self.q("DELETE FROM price_history WHERE collected_at < ?", [old])
+        self.q("""DELETE FROM price_history WHERE collected_at < ? AND id NOT IN (
+                    SELECT MAX(id) FROM price_history WHERE collected_at < ?
+                    GROUP BY listing_id, substr(collected_at, 1, 10))""", [detail, detail])
+        self.q("DELETE FROM collection_runs WHERE started_at < ?", [old])
+        self.commit()
+        if not self.is_pg:
+            self.conn.execute("VACUUM")
+            self.conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        return before - self.one("SELECT COUNT(*) AS n FROM price_history")["n"]
+
     def copy_from(self, other: "Database", batch: int = 400) -> int:
         """Copia todas as tabelas de outro banco (ex.: demo gerada em memória -> Postgres)
         com inserções em lote, para ser rápido mesmo com o banco na nuvem."""

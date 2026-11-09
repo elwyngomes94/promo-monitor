@@ -76,22 +76,43 @@ def ingest(db: Database, offers: Iterable[Offer], coupons: Optional[list[dict]] 
     return n
 
 
+ML_TOKEN_KEY = "mercadolivre_refresh_token"
+
+
+def load_ml_token(db: Database, cfg: dict) -> Optional[str]:
+    from .secretbox import decrypt
+    stored, secret = db.get_state(ML_TOKEN_KEY), cfg.get("client_secret")
+    if not stored or not secret:
+        return None
+    try:
+        return decrypt(secret, stored)
+    except ValueError:
+        log.warning("token salvo do Mercado Livre não pôde ser lido; usando o da configuração")
+        return None
+
+
+def save_ml_token(db: Database, cfg: dict, token: Optional[str]):
+    from .secretbox import encrypt
+    secret = cfg.get("client_secret")
+    if token and secret and token != load_ml_token(db, cfg):
+        db.set_state(ML_TOKEN_KEY, encrypt(secret, token))
+
+
 def run_store(db: Database, store_id: str, cfg: dict, coupons: list[dict]) -> int:
     run_id = db.start_run(store_id)
     try:
         if store_id == "mercadolivre":
             # o refresh_token do ML muda a cada renovação: o mais recente fica no banco,
-            # assim funciona em ambientes sem disco (GitHub Actions, Vercel)
-            saved = db.get_state("mercadolivre_refresh_token")
+            # criptografado com o client_secret (o banco pode estar num repositório público)
+            saved = load_ml_token(db, cfg)
             if saved:
                 cfg = {**cfg, "refresh_token": saved}
         collector = build_collector(store_id, cfg)
         try:
             n = ingest(db, collector.collect(), coupons)
         finally:
-            new_token = getattr(collector, "config", {}).get("refresh_token")
-            if store_id == "mercadolivre" and new_token and new_token != db.get_state("mercadolivre_refresh_token"):
-                db.set_state("mercadolivre_refresh_token", new_token)
+            if store_id == "mercadolivre":
+                save_ml_token(db, cfg, getattr(collector, "config", {}).get("refresh_token"))
         db.finish_run(run_id, "ok", n)
         log.info("%s: %d ofertas", STORES[store_id].name, n)
         return n
