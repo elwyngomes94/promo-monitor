@@ -34,6 +34,8 @@ jobs:
     env:
       PROMO_DB: promo.db
       PROMO_CONFIG_JSON: ${{ secrets.PROMO_CONFIG_JSON }}
+      ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+      ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
       ACAO: ${{ inputs.acao || 'coletar' }}
     steps:
       - uses: actions/checkout@v4
@@ -57,14 +59,14 @@ jobs:
             carregar-demo) python -m promo demo ;;
             apagar-demo)   python -m promo clear-demo ;;
             *)
-              if [ -n "$PROMO_CONFIG_JSON" ]; then
-                python -m promo collect
+              if [ -n "$PROMO_CONFIG_JSON" ] || [ -n "$ML_CLIENT_ID" ]; then
+                python -m promo collect || echo "::warning::A coleta teve falhas. Veja a mensagem acima."
               else
-                echo "Nenhuma loja configurada ainda (secret PROMO_CONFIG_JSON)."
+                echo "Nenhuma loja configurada ainda (secrets ML_CLIENT_ID/ML_CLIENT_SECRET ou PROMO_CONFIG_JSON)."
               fi ;;
           esac
           # sem lojas configuradas, mostra a demonstração para o site não ficar vazio
-          if [ -z "$PROMO_CONFIG_JSON" ] && [ "$ACAO" != "apagar-demo" ]; then
+          if [ -z "$PROMO_CONFIG_JSON" ] && [ -z "$ML_CLIENT_ID" ] && [ "$ACAO" != "apagar-demo" ]; then
             python -m promo demo --if-empty
           fi
           python -m promo compact
@@ -74,9 +76,6 @@ jobs:
 
       - name: Diagnóstico da API do Mercado Livre
         continue-on-error: true
-        env:
-          ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
-          ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
         run: python -m promo.mlcheck /tmp/ml_diag.json
 
       - name: Salvar o banco no ramo "dados"

@@ -20,14 +20,31 @@ Tudo roda no próprio GitHub:
 
 Enquanto as lojas não forem configuradas, o site mostra os dados de demonstração.
 
-## Configurar as lojas
+## Ligar os preços reais do Mercado Livre (grátis)
 
-1. Em Settings > Secrets and variables > Actions > New repository secret, crie
-   `PROMO_CONFIG_JSON` com o conteúdo do seu `config.json` (veja `config.example.json`).
-   Secrets nunca ficam públicos, nem com o repositório público.
-2. Rode o workflow com a opção **apagar-demo** para remover os dados de exemplo.
+1. Entre em https://developers.mercadolivre.com.br com a sua conta do Mercado Livre,
+   abra **Minhas aplicações > Criar nova aplicação** e preencha nome, descrição e uma
+   URL de redirecionamento (pode ser `https://elwyngomes94.github.io/promo-monitor/`).
+   Nos escopos, basta leitura.
+2. Copie o **App ID** (Client ID) e a **Secret Key** (Client Secret) da aplicação criada.
+3. No GitHub, em Settings > Secrets and variables > Actions > New repository secret, crie:
+   - `ML_CLIENT_ID` com o App ID;
+   - `ML_CLIENT_SECRET` com a Secret Key.
+4. Em Actions > Produção (coleta e site) > Run workflow, rode com **coletar**.
 
-A partir daí a coleta real roda de hora em hora.
+Na primeira coleta real, a demonstração é removida sozinha. Os termos pesquisados vêm de
+uma lista padrão (fone, smartwatch, air fryer, tênis, perfume, TV, celular, notebook...);
+para trocar, use o secret `PROMO_CONFIG_JSON` com `"queries"` (veja `config.example.json`).
+
+Por que pelo catálogo: a busca de anúncios da API (`/sites/MLB/search`) responde 403 para
+aplicativos comuns. O sistema usa as rotas de catálogo (`/products/search` e
+`/products/{id}/items`), que trazem o preço de cada vendedor do mesmo produto.
+
+## Outras lojas
+
+Amazon, Magalu, Shopee, SHEIN, TikTok Shop, Centauro, Netshoes e O Boticário entram pelos
+programas de afiliados (cadastro grátis em cada um). Com o acesso aprovado, adicione a
+loja no `PROMO_CONFIG_JSON` (formato em `config.example.json`).
 
 ## O que fica público e o que não fica
 

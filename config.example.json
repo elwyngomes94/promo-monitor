@@ -5,11 +5,9 @@
       "enabled": true,
       "client_id": "SEU_CLIENT_ID",
       "client_secret": "SEU_CLIENT_SECRET",
-      "refresh_token": "SEU_REFRESH_TOKEN",
       "queries": ["fone bluetooth", "air fryer", "tenis corrida"],
-      "categories": [],
-      "max_items_per_query": 100,
-      "compare_sellers": true,
+      "products_per_query": 8,
+      "sellers_per_product": 5,
       "fetch_seller_reputation": true,
       "requests_per_second": 2,
       "interval_minutes": 30

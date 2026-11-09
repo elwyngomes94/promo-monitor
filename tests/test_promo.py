@@ -113,32 +113,67 @@ def test_ranking_and_cheaper_elsewhere():
 
 
 # ---------- coletores ----------
-def test_mercadolivre_parser_and_sellers():
+def test_mercadolivre_catalog_collector():
     calls = []
 
     def fake_http(url, params=None, headers=None):
         calls.append(url)
-        if "/search" in url:
-            return {"results": [] if params["offset"] else [{
-                "id": "MLB1", "title": "Air Fryer Lumen 4L", "price": 300, "original_price": 450,
-                "permalink": "https://produto.mercadolivre.com.br/MLB-1", "catalog_product_id": "MLB-CAT1",
-                "shipping": {"free_shipping": True}, "seller": {"id": 9},
-                "tags": ["lightning_deal"], "attributes": [{"id": "GTIN", "value_name": "7890000000066"}]}]}
-        if "/products/MLB-CAT1/items" in url:
-            return {"results": [{"item_id": "MLB2", "price": 310, "seller_id": 10,
-                                 "shipping": {"free_shipping": False}}]}
-        if "/users/" in url:
+        assert headers["Authorization"] == "Bearer TOKEN"
+        if url.endswith("/products/search"):
+            if params["q"] != "air fryer":
+                return {"results": []}
+            return {"results": [{"id": "MLB123", "name": "Air Fryer Lumen 4L", "domain_id": "MLB-AIR_FRYERS",
+                                 "pictures": [{"url": "http://http2.mlstatic.com/x.jpg"}],
+                                 "attributes": [{"id": "GTIN", "value_name": "7890000000066"},
+                                                {"id": "BRAND", "value_name": "Lumen"}]}]}
+        if url.endswith("/products/MLB123/items"):
+            return {"results": [
+                {"item_id": "MLB1", "price": 300, "original_price": 450, "seller_id": 9,
+                 "shipping": {"free_shipping": True}, "tags": ["lightning_deal"]},
+                {"item_id": "MLB2", "price": 310, "seller_id": 10, "shipping": {"free_shipping": False}}]}
+        if url.endswith("/users/9"):
             return {"nickname": "LOJA", "seller_reputation": {"level_id": "5_green",
                     "power_seller_status": "platinum", "transactions": {"completed": 1000}}}
+        if url.endswith("/users/10"):
+            from promo.collectors.base import CollectorError
+            raise CollectorError("HTTP 403 em https://api.mercadolibre.com/users/10: forbidden")
         raise AssertionError(url)
 
-    col = MercadoLivreCollector({"queries": ["air fryer"], "access_token": "t"}, http=fake_http)
+    posts = []
+
+    def fake_post(path, data):
+        posts.append(data["grant_type"])
+        return {"access_token": "TOKEN"}
+
+    col = MercadoLivreCollector({"client_id": "1", "client_secret": "s", "queries": ["air fryer", "nada"]},
+                                http=fake_http, post=fake_post)
     offers = list(col.collect())
+    assert posts == ["client_credentials"]
     assert [o.external_id for o in offers] == ["MLB1", "MLB2"]
     o = offers[0]
-    assert o.is_lightning and o.free_shipping and o.gtin == "7890000000066"
+    assert o.is_lightning and o.free_shipping and o.gtin == "7890000000066" and o.brand == "Lumen"
     assert o.list_price == 450 and o.seller_reputation == "Excelente · MercadoLíder Platinum"
-    assert offers[1].catalog_id == "MLB-CAT1"
+    assert o.image == "https://http2.mlstatic.com/x.jpg"
+    assert o.url == "https://www.mercadolivre.com.br/p/MLB123?pdp_filters=item_id:MLB1"
+    assert offers[1].catalog_id == "MLB123" and offers[1].seller_name is None
+
+
+def test_mercadolivre_without_results_is_an_error():
+    import pytest
+    from promo.collectors.base import CollectorError
+    col = MercadoLivreCollector({"client_id": "1", "client_secret": "s", "queries": ["x"]},
+                                http=lambda *a, **k: {"results": []}, post=lambda p, d: {"access_token": "T"})
+    with pytest.raises(CollectorError):
+        list(col.collect())
+
+
+def test_config_from_ml_secrets(monkeypatch, tmp_path):
+    from promo.__main__ import load_config
+    monkeypatch.delenv("PROMO_CONFIG_JSON", raising=False)
+    monkeypatch.setenv("ML_CLIENT_ID", "123")
+    monkeypatch.setenv("ML_CLIENT_SECRET", "abc")
+    cfg = load_config(str(tmp_path / "nao-existe.json"))
+    assert cfg["stores"]["mercadolivre"] == {"enabled": True, "client_id": "123", "client_secret": "abc"}
 
 
 def test_affiliate_csv_feed(tmp_path):

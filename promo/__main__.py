@@ -21,13 +21,23 @@ from .web import serve, to_csv
 
 
 def load_config(path: str) -> dict:
-    # em servidores, a configuração pode vir inteira numa variável de ambiente
+    """Configuração: PROMO_CONFIG_JSON (servidores), config.json (local) e, para o
+    Mercado Livre, só ML_CLIENT_ID e ML_CLIENT_SECRET já bastam."""
     if os.environ.get("PROMO_CONFIG_JSON"):
-        return json.loads(os.environ["PROMO_CONFIG_JSON"])
-    if not os.path.exists(path):
-        return {"stores": {}}
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        cfg = json.loads(os.environ["PROMO_CONFIG_JSON"])
+    elif os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            cfg = json.load(f)
+    else:
+        cfg = {}
+    cfg.setdefault("stores", {})
+    cid, secret = os.environ.get("ML_CLIENT_ID"), os.environ.get("ML_CLIENT_SECRET")
+    if cid and secret:
+        ml = cfg["stores"].setdefault("mercadolivre", {})
+        ml.setdefault("enabled", True)
+        ml.setdefault("client_id", cid)
+        ml.setdefault("client_secret", secret)
+    return cfg
 
 
 def save_config(path: str, cfg: dict):
@@ -101,6 +111,17 @@ def main(argv=None):
             print("Nenhuma loja habilitada. Copie config.example.json para config.json e ajuste.")
         for sid, n in res.items():
             print(f"{STORES[sid].name}: {n} ofertas")
+        # chegaram dados reais: a demonstração sai sozinha
+        if sum(res.values()) and db.one("SELECT 1 AS x FROM listings WHERE external_id NOT LIKE 'DEMO-%' LIMIT 1"):
+            removed = db.clear_demo()
+            if removed:
+                print(f"Dados de demonstração removidos ({removed} anúncios)")
+        failed = [STORES[r["store_id"]].name + ": " + (r["error"] or "") for r in db.last_runs()
+                  if r["status"] == "erro" and r["store_id"] in res]
+        if failed:
+            print("Falhas:\n  " + "\n  ".join(failed))
+            if not sum(res.values()):
+                return 1
     elif a.cmd == "run":
         from .pipeline import scheduler_loop
         print("Coleta contínua iniciada (Ctrl+C para parar)")
