@@ -1,0 +1,4 @@
+[
+  {"store": "netshoes", "code": "EXEMPLO10", "percent": 10, "min_value": 199, "max_discount": 100, "valid_until": "2026-11-30"},
+  {"store": "mercadolivre", "code": "EXEMPLO20", "value": 20, "min_value": 150, "category": "MLB1000", "valid_until": "2026-11-30"}
+]

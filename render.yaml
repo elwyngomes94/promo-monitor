@@ -1,0 +1,18 @@
+# Blueprint do Render (render.com): New > Blueprint > selecione este repositório.
+services:
+  - type: web
+    name: promo-monitor
+    runtime: docker
+    plan: starter            # o disco persistente exige plano pago
+    healthCheckPath: /healthz
+    envVars:
+      - key: DASHBOARD_USER
+        value: admin
+      - key: DASHBOARD_PASSWORD
+        generateValue: true  # veja o valor gerado no painel do Render
+      - key: PROMO_CONFIG_JSON
+        sync: false          # cole o conteúdo do seu config.json no painel
+    disk:
+      name: promo-data
+      mountPath: /data
+      sizeGB: 1

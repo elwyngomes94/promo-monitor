@@ -1,0 +1,7 @@
+*.db
+*.db-*
+config.json
+coupons.json
+__pycache__
+tests
+*.csv

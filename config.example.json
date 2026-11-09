@@ -1,0 +1,38 @@
+{
+  "coupons_file": "coupons.json",
+  "stores": {
+    "mercadolivre": {
+      "enabled": true,
+      "client_id": "SEU_CLIENT_ID",
+      "client_secret": "SEU_CLIENT_SECRET",
+      "refresh_token": "SEU_REFRESH_TOKEN",
+      "queries": ["fone bluetooth", "air fryer", "tenis corrida"],
+      "categories": [],
+      "max_items_per_query": 100,
+      "compare_sellers": true,
+      "fetch_seller_reputation": true,
+      "requests_per_second": 2,
+      "interval_minutes": 30
+    },
+    "amazon": {
+      "enabled": false,
+      "feed_url": "URL_DO_FEED_OU_API_DE_AFILIADOS",
+      "format": "json",
+      "json_path": "items",
+      "headers": {"Authorization": "Bearer SEU_TOKEN"},
+      "fields": {"external_id": "asin", "title": "title", "price": "price", "list_price": "list_price", "url": "detail_page_url", "gtin": "ean", "image": "image"}
+    },
+    "magalu":     {"enabled": false, "feed_url": "URL_DO_FEED", "format": "csv", "fields": {}},
+    "shopee":     {"enabled": false, "feed_url": "URL_DO_FEED", "format": "csv", "fields": {}},
+    "shein":      {"enabled": false, "feed_url": "URL_DO_FEED", "format": "csv", "fields": {}},
+    "tiktokshop": {"enabled": false, "feed_url": "URL_DO_FEED", "format": "csv", "fields": {}},
+    "centauro":   {"enabled": false, "feed_url": "URL_DO_FEED", "format": "csv", "fields": {}},
+    "netshoes": {
+      "enabled": false,
+      "feed_url": "URL_DO_FEED",
+      "format": "csv",
+      "fields": {"external_id": "sku", "title": "nome", "price": "preco_por", "list_price": "preco_de", "url": "link_afiliado", "gtin": "ean", "free_shipping": "frete_gratis"}
+    },
+    "boticario":  {"enabled": false, "feed_file": "feeds/boticario.csv", "format": "csv", "fields": {}}
+  }
+}
