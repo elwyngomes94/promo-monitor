@@ -72,6 +72,13 @@ jobs:
       - name: Gerar o site
         run: python -m promo build-site --out site
 
+      - name: Diagnóstico da API do Mercado Livre
+        continue-on-error: true
+        env:
+          ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+          ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
+        run: python -m promo.mlcheck /tmp/ml_diag.json
+
       - name: Salvar o banco no ramo "dados"
         run: |
           git config user.name "github-actions[bot]"
@@ -81,6 +88,7 @@ jobs:
           git rm -rq --cached .
           cp /tmp/promo.db promo.db
           git add -f promo.db
+          if [ -f /tmp/ml_diag.json ]; then cp /tmp/ml_diag.json ml_diag.json; git add -f ml_diag.json; fi
           git commit -qm "Banco atualizado em $(date -u +%Y-%m-%dT%H:%MZ)"
           git push -qf origin HEAD:refs/heads/dados
 
