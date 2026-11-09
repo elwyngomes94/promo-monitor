@@ -1,0 +1,52 @@
+name: Coleta de preços
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # de hora em hora (horário UTC), no minuto 17
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: "O que fazer"
+        type: choice
+        default: coletar
+        options:
+          - coletar
+          - carregar-demo
+          - apagar-demo
+
+concurrency:
+  group: coleta
+  cancel-in-progress: false
+
+jobs:
+  coleta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PROMO_CONFIG_JSON: ${{ secrets.PROMO_CONFIG_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verificar configuração
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Cadastre o secret DATABASE_URL (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+      - name: Coletar preços
+        if: github.event_name == 'schedule' || inputs.acao == 'coletar'
+        run: |
+          if [ -z "$PROMO_CONFIG_JSON" ]; then
+            echo "Nenhuma loja configurada ainda (secret PROMO_CONFIG_JSON vazio). Nada a coletar."
+            exit 0
+          fi
+          python -m promo collect
+      - name: Carregar demonstração
+        if: inputs.acao == 'carregar-demo'
+        run: python -m promo demo
+      - name: Apagar demonstração
+        if: inputs.acao == 'apagar-demo'
+        run: python -m promo clear-demo

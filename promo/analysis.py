@@ -48,11 +48,14 @@ def reputation_score(rep: Optional[str]) -> float:
 
 
 def analyze_listing(db: Database, row: dict, cfg: AnalysisConfig = AnalysisConfig(),
-                    now: Optional[datetime] = None) -> dict:
+                    now: Optional[datetime] = None, hist: Optional[list[dict]] = None) -> dict:
     now = now or _parse(row["collected_at"])
     since = (now - timedelta(days=cfg.window_days)).isoformat()
     cutoff = now - timedelta(days=cfg.exclude_recent_days)
-    hist = db.history(row["id"], since)
+    if hist is None:
+        hist = db.history(row["id"], since)
+    else:
+        hist = [h for h in hist if h["collected_at"] >= since]
     past = [h["price"] for h in hist if _parse(h["collected_at"]) < cutoff]
     price = row["price"]
 
@@ -123,7 +126,12 @@ def analyze_listing(db: Database, row: dict, cfg: AnalysisConfig = AnalysisConfi
 
 def analyze_all(db: Database, store_ids: Optional[list[str]] = None,
                 cfg: AnalysisConfig = AnalysisConfig()) -> list[dict]:
-    return [analyze_listing(db, r, cfg) for r in db.current_listings(store_ids)]
+    rows = db.current_listings(store_ids)
+    if not rows:
+        return []
+    oldest = min(_parse(r["collected_at"]) for r in rows) - timedelta(days=cfg.window_days)
+    hists = db.histories_since(oldest.isoformat())
+    return [analyze_listing(db, r, cfg, hist=hists.get(r["id"], [])) for r in rows]
 
 
 def filter_offers(items: list[dict], category: Optional[str] = None, q: Optional[str] = None,

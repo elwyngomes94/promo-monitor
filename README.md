@@ -5,7 +5,8 @@ SHEIN, TikTok Shop, Centauro, Netshoes, O Boticário e Mercado Livre — com his
 preços, detecção de desconto real × maquiado, comparação do mesmo produto entre lojas,
 ranking das melhores ofertas, dashboard web e relatório em CSV.
 
-Usa só a biblioteca padrão do Python 3.10+ (nenhuma dependência para instalar).
+Usa só a biblioteca padrão do Python 3.10+ (nenhuma dependência para instalar), inclusive
+para falar com o Postgres (`promo/pgwire.py`). Banco: SQLite local ou Postgres (`DATABASE_URL`).
 
 ## Começo rápido (dados de demonstração)
 
@@ -27,7 +28,10 @@ Comece com um banco novo (`--db promo.db` sem rodar `demo`) para não misturar d
 
 ## Colocar no ar
 
-Veja [DEPLOY.md](DEPLOY.md): Docker, Render ou VPS, com login por senha no dashboard e coleta
+**Grátis:** Vercel (dashboard) + Neon (Postgres) + GitHub Actions (coleta de hora em hora).
+Passo a passo em [VERCEL.md](VERCEL.md).
+
+**Servidor próprio ou Render:** veja [DEPLOY.md](DEPLOY.md): Docker, Render ou VPS, com login por senha no dashboard e coleta
 automática no mesmo processo (`python -m promo serve --collect`).
 
 ## Imagens dos produtos

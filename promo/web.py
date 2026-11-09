@@ -25,7 +25,10 @@ CSV_COLUMNS = [
 ]
 
 
-def make_handler(db: Database, auth: tuple[str, str] | None = None):
+def make_handler(db, auth: tuple[str, str] | None = None):
+    """`db` pode ser um Database ou uma função que devolve um (conexão sob demanda,
+    usada na Vercel)."""
+    get_db = db if callable(db) else (lambda: db)
     expected = ("Basic " + base64.b64encode(f"{auth[0]}:{auth[1]}".encode()).decode()) if auth else None
 
     class Handler(BaseHTTPRequestHandler):
@@ -45,9 +48,14 @@ def make_handler(db: Database, auth: tuple[str, str] | None = None):
         def _json(self, data, status=200):
             self._send(json.dumps(data, ensure_ascii=False).encode(), "application/json; charset=utf-8", status)
 
+        def _all(self):
+            if not hasattr(self, "_cache"):
+                self._cache = analyze_all(get_db())
+            return self._cache
+
         def _items(self, qs):
-            stores = [s for s in (qs.get("store", [""])[0]).split(",") if s] or None
-            items = analyze_all(db, stores)
+            stores = {s for s in (qs.get("store", [""])[0]).split(",") if s}
+            items = [i for i in self._all() if not stores or i["store_id"] in stores]
             flag = lambda k: qs.get(k, ["0"])[0] in ("1", "true")  # noqa: E731
             mp = qs.get("max_price", [""])[0]
             return filter_offers(items, category=qs.get("category", [None])[0] or None,
@@ -58,36 +66,40 @@ def make_handler(db: Database, auth: tuple[str, str] | None = None):
         def do_GET(self):  # noqa: N802
             u = urlparse(self.path)
             qs = parse_qs(u.query)
-            if u.path == "/healthz":
+            path = u.path
+            # na Vercel tudo é reescrito para /api/index?__p=<caminho original>
+            if qs.get("__p"):
+                path = qs.pop("__p")[0] or "/"
+            elif path in ("/api", "/api/index", "/api/index.py"):
+                path = "/"
+            if path == "/healthz":
                 return self._send(b"ok", "text/plain")
             if expected and not hmac.compare_digest(self.headers.get("Authorization", ""), expected):
                 return self._send("Login necessário".encode(), "text/plain; charset=utf-8", 401,
                                   {"WWW-Authenticate": 'Basic realm="Promo Monitor", charset="UTF-8"'})
             try:
-                if u.path in ("/", "/index.html"):
+                db = get_db() if path.startswith("/api/") else None
+                if path in ("/", "/index.html"):
                     with open(os.path.join(STATIC, "index.html"), "rb") as f:
                         return self._send(f.read(), "text/html; charset=utf-8")
-                if u.path == "/api/stores":
+                if path == "/api/stores":
                     runs = {r["store_id"]: r for r in db.last_runs()}
                     return self._json([{"id": s.id, "name": s.name, "source": s.source,
                                         "source_note": s.source_note,
                                         "interval_minutes": s.interval_minutes,
                                         "last_run": runs.get(s.id)} for s in STORES.values()])
-                if u.path == "/api/categories":
-                    rows = db.conn.execute("SELECT DISTINCT category FROM listings "
-                                           "WHERE category IS NOT NULL ORDER BY 1").fetchall()
-                    return self._json([r[0] for r in rows])
-                if u.path == "/api/offers":
+                if path == "/api/categories":
+                    return self._json(db.categories())
+                if path == "/api/offers":
                     return self._json(self._items(qs))
-                if u.path == "/api/ranking":
+                if path == "/api/ranking":
                     limit = int(qs.get("limit", ["50"])[0])
                     items = self._items(qs)
-                    return self._json(ranking(items, analyze_all(db), limit))
-                if u.path == "/api/summary":
+                    return self._json(ranking(items, self._all(), limit))
+                if path == "/api/summary":
                     return self._json(summary(self._items(qs)))
-                if u.path == "/api/compare":
-                    items = analyze_all(db)
-                    groups = compare_groups(items)
+                if path == "/api/compare":
+                    groups = compare_groups(self._all())
                     if qs.get("group_id"):
                         g = groups.get(int(qs["group_id"][0]))
                         return self._json(g) if g else self._json({"error": "não encontrado"}, 404)
@@ -97,16 +109,18 @@ def make_handler(db: Database, auth: tuple[str, str] | None = None):
                     for g in out:
                         g["offers"] = [o for o in g["offers"]][:12]
                     return self._json(sorted(out, key=lambda g: -g["spread"]))
-                if u.path == "/api/history":
+                if path == "/api/history":
                     lid = int(qs["listing_id"][0])
                     return self._json({"listing": db.listing(lid), "history": db.history(lid)})
-                if u.path == "/api/report.csv":
-                    rows = ranking(self._items(qs), analyze_all(db), int(qs.get("limit", ["500"])[0]))
+                if path == "/api/report.csv":
+                    rows = ranking(self._items(qs), self._all(), int(qs.get("limit", ["500"])[0]))
                     return self._send(to_csv(rows).encode("utf-8-sig"), "text/csv; charset=utf-8",
                                       extra={"Content-Disposition": 'attachment; filename="promocoes.csv"'})
                 self._json({"error": "rota não encontrada"}, 404)
             except (KeyError, ValueError) as e:
                 self._json({"error": f"parâmetro inválido: {e}"}, 400)
+            except Exception as e:  # noqa: BLE001 — ex.: banco fora do ar
+                self._json({"error": f"falha ao consultar o banco: {e}"}, 500)
 
     return Handler
 

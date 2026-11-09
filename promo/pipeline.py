@@ -64,7 +64,7 @@ def ingest(db: Database, offers: Iterable[Offer], coupons: Optional[list[dict]] 
     if matcher is None:
         matcher = Matcher()
         matcher.load([(r["match_key"], r["name"]) for r in
-                      db.conn.execute("SELECT match_key, name FROM product_groups")])
+                      db.q("SELECT match_key, name FROM product_groups")])
     n = 0
     for offer in offers:
         apply_coupons(offer, coupons or [])
@@ -79,12 +79,24 @@ def ingest(db: Database, offers: Iterable[Offer], coupons: Optional[list[dict]] 
 def run_store(db: Database, store_id: str, cfg: dict, coupons: list[dict]) -> int:
     run_id = db.start_run(store_id)
     try:
-        n = ingest(db, build_collector(store_id, cfg).collect(), coupons)
+        if store_id == "mercadolivre":
+            # o refresh_token do ML muda a cada renovação: o mais recente fica no banco,
+            # assim funciona em ambientes sem disco (GitHub Actions, Vercel)
+            saved = db.get_state("mercadolivre_refresh_token")
+            if saved:
+                cfg = {**cfg, "refresh_token": saved}
+        collector = build_collector(store_id, cfg)
+        try:
+            n = ingest(db, collector.collect(), coupons)
+        finally:
+            new_token = getattr(collector, "config", {}).get("refresh_token")
+            if store_id == "mercadolivre" and new_token and new_token != db.get_state("mercadolivre_refresh_token"):
+                db.set_state("mercadolivre_refresh_token", new_token)
         db.finish_run(run_id, "ok", n)
         log.info("%s: %d ofertas", STORES[store_id].name, n)
         return n
     except Exception as e:  # noqa: BLE001 — uma loja com erro não derruba as outras
-        db.conn.rollback()
+        db.rollback()
         db.finish_run(run_id, "erro", 0, str(e)[:500])
         log.error("%s: %s", STORES[store_id].name, e)
         return 0
@@ -102,7 +114,7 @@ def run_all(db: Database, config: dict, only: Optional[list[str]] = None) -> dic
     return result
 
 
-def scheduler_loop(db_path: str, config: dict, stop=None, on_saved=None, tick: int = 30):
+def scheduler_loop(db_path: Optional[str], config: dict, stop=None, on_saved=None, tick: int = 30):
     """Coleta contínua respeitando a frequência de cada loja.
 
     Usa conexão própria com o banco (pode rodar numa thread ao lado do dashboard)."""

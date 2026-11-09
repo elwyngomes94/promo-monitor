@@ -14,7 +14,7 @@ import os
 import sys
 
 from .analysis import analyze_all, ranking
-from .db import Database
+from .db import Database, default_db_target
 from .pipeline import run_all
 from .stores import STORES
 from .web import serve, to_csv
@@ -39,7 +39,9 @@ def save_config(path: str, cfg: dict):
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog="promo", description="Monitor de promoções")
-    p.add_argument("--db", default=os.environ.get("PROMO_DB", "promo.db"))
+    p.add_argument("--db", default=None,
+                   help="arquivo SQLite ou URL postgres:// (padrão: DATABASE_URL, POSTGRES_URL, "
+                        "PROMO_DB ou promo.db)")
     p.add_argument("--config", default=os.environ.get("PROMO_CONFIG", "config.json"))
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -60,6 +62,7 @@ def main(argv=None):
     rep.add_argument("--store", action="append", choices=list(STORES))
     rep.add_argument("--limit", type=int, default=200)
     sub.add_parser("stores", help="listar lojas")
+    sub.add_parser("clear-demo", help="apagar os dados de demonstração")
 
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -69,13 +72,16 @@ def main(argv=None):
             print(f"{st.id:13} {st.name:16} {st.source:15} a cada {st.interval_minutes:>3} min — {st.source_note}")
         return 0
 
+    a.db = a.db or default_db_target()
     db = Database(a.db)
     cfg = load_config(a.config)
 
     if a.cmd == "demo":
-        from .demo import seed_demo
-        n = seed_demo(db, a.days)
-        print(f"{n} registros de preço de demonstração gravados em {a.db}")
+        from .demo import load_demo
+        n = load_demo(db, a.days)
+        print(f"{n} registros de demonstração gravados")
+    elif a.cmd == "clear-demo":
+        print(f"{db.clear_demo()} anúncios de demonstração removidos")
     elif a.cmd == "collect":
         res = run_all(db, cfg, a.store)
         save_config(a.config, cfg)
@@ -91,9 +97,9 @@ def main(argv=None):
         except KeyboardInterrupt:
             pass
     elif a.cmd == "serve":
-        if a.demo_if_empty and not db.conn.execute("SELECT 1 FROM listings LIMIT 1").fetchone():
-            from .demo import seed_demo
-            seed_demo(db)
+        if a.demo_if_empty and db.is_empty():
+            from .demo import load_demo
+            load_demo(db)
             print("Banco vazio: dados de demonstração carregados")
         if a.collect:
             import threading

@@ -161,3 +161,13 @@ def seed_demo(db: Database, days: int = 90, seed: int = 42) -> int:
                     ))
         n += ingest(db, offers, matcher=matcher, collected_at=ts)
     return n
+
+
+def load_demo(db: Database, days: int = 90) -> int:
+    """Carrega a demonstração. Num Postgres vazio, gera em memória e copia em lote
+    (milhares de linhas em poucas idas ao banco)."""
+    if db.is_pg and db.is_empty():
+        mem = Database(":memory:")
+        seed_demo(mem, days)
+        return db.copy_from(mem)
+    return seed_demo(db, days)

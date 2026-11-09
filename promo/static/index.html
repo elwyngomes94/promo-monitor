@@ -111,7 +111,7 @@ const $ = s => document.querySelector(s);
 const brl = v => v == null ? '—' : v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const pct = v => v == null ? '—' : (v*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let STORES = [], selected = new Set(), tab = 'ranking';
+let STORES = [], selected = new Set(), tab = 'ranking'; const STATE = {total: null};
 try { const s = JSON.parse(localStorage.getItem('pm_stores')||'[]'); s.forEach(x=>selected.add(x)); tab = localStorage.getItem('pm_tab') || tab; } catch(e) {}
 
 const FLAG = {
@@ -161,6 +161,8 @@ async function refresh() {
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
   $('#csv').href = `/api/report.csv?${params()}`;
   const sum = await api('summary');
+  if (sum.error) { $('#view').innerHTML = `<div class="empty"><b>Não foi possível carregar os dados.</b><br>${esc(sum.error)}</div>`; $('#updated').textContent = ''; return; }
+  if (!params()) STATE.total = sum.total_offers;
   $('#updated').textContent = `${sum.total_offers} ofertas analisadas · atualizado ${new Date(sum.generated_at).toLocaleString('pt-BR')}`;
   $('#kpis').innerHTML = [
     [sum.total_offers,'ofertas monitoradas'], [sum.real_discounts,'com desconto real'],
@@ -173,7 +175,9 @@ async function refresh() {
 
 async function renderRanking() {
   const rows = await api('ranking', {limit: 60});
-  if (!rows.length) return $('#view').innerHTML = '<div class="empty">Nenhuma oferta com esses filtros.</div>';
+  if (!rows.length) return $('#view').innerHTML = STATE.total === 0
+    ? '<div class="empty"><b>Ainda não há ofertas no banco.</b><br>No GitHub, abra Actions &gt; Coleta de preços &gt; Run workflow e escolha <i>carregar-demo</i> para ver o sistema com dados de exemplo, ou configure as lojas e escolha <i>coletar</i>.</div>'
+    : '<div class="empty">Nenhuma oferta com esses filtros.</div>';
   $('#view').innerHTML = `<table><thead><tr><th>#</th><th>Produto</th><th>Loja</th><th class="num">Preço final</th><th class="num hide-sm">Referência 90d</th><th class="num">Desc. real</th><th class="hide-sm">Vendedor</th><th></th></tr></thead><tbody>` +
     rows.map(r => `<tr class="clickable" data-id="${r.listing_id}">
       <td class="rank">${r.rank}</td>

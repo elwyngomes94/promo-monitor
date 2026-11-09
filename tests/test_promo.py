@@ -15,7 +15,15 @@ from promo.web import to_csv  # noqa: E402
 
 
 def mem_db():
-    return Database(":memory:")
+    """SQLite em memória, ou um Postgres limpo se PROMO_TEST_PG estiver definido."""
+    url = os.environ.get("PROMO_TEST_PG")
+    if not url:
+        return Database(":memory:")
+    from promo.pgwire import connect
+    c = connect(url)
+    c.query("DROP TABLE IF EXISTS price_history, sellers, collection_runs, app_state, listings, product_groups CASCADE")
+    c.close()
+    return Database(url)
 
 
 def days_ago(n):
@@ -143,3 +151,25 @@ def test_affiliate_csv_feed(tmp_path):
         "url": "link", "free_shipping": "frete"}})
     [o] = list(col.collect())
     assert (o.price, o.list_price, o.free_shipping) == (199.9, 299.9, True)
+
+
+def test_demo_copy_and_clear():
+    from promo.demo import load_demo
+    db = mem_db()
+    n = load_demo(db, days=10)
+    assert n > 0 and not db.is_empty()
+    items = analyze_all(db)
+    assert len(items) == 83 and all(i["image"] for i in items)
+    assert len(compare_groups(items)) == 18
+    # inserir depois da cópia precisa continuar gerando ids novos
+    ingest(db, [offer(store="amazon", eid="REAL-1", title="Produto Real 1")])
+    assert db.clear_demo() > 0
+    assert [i["external_id"] for i in db.current_listings()] == ["REAL-1"]
+
+
+def test_state_roundtrip():
+    db = mem_db()
+    assert db.get_state("k") is None
+    db.set_state("k", "a")
+    db.set_state("k", "b")
+    assert db.get_state("k") == "b"
