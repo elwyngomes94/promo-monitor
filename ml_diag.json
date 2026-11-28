@@ -1,0 +1,30 @@
+{
+ "anonimo": {
+  "sites_search": {
+   "status": 403,
+   "body": {
+    "message": "forbidden",
+    "error": "forbidden",
+    "status": 403,
+    "cause": []
+   }
+  },
+  "products_search": {
+   "status": 403,
+   "body": {
+    "status": 403,
+    "code": "PA_UNAUTHORIZED_RESULT_FROM_POLICIES",
+    "message": "At least one policy returned UNAUTHORIZED.",
+    "blocked_by": "PolicyAgent"
+   }
+  },
+  "highlights": {
+   "status": 401,
+   "body": {
+    "error": "unauthorized",
+    "message": "unspecified_token",
+    "status": 401
+   }
+  }
+ }
+}
